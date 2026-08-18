@@ -334,7 +334,7 @@ function StepCard({
         <Button
           size="sm"
           icon={<FlaskConical className="h-4 w-4" />}
-          disabled={!templateId || !canRun || running}
+          disabled={!templateId || !canRun || running || dirty}
           loading={run.isPending && run.variables === true}
           onClick={() => run.mutate(true)}
           title="Create one email for the first contact only"
@@ -345,7 +345,7 @@ function StepCard({
           size="sm"
           variant="success"
           icon={<Play className="h-4 w-4" />}
-          disabled={!templateId || !canRun || running || contactCount === 0}
+          disabled={!templateId || !canRun || running || contactCount === 0 || dirty}
           loading={run.isPending && run.variables === false}
           onClick={() => {
             if (confirm(`Run ${STEP_LABELS[step.kind]} for ${formatNumber(contactCount)} contact(s) now?`)) run.mutate(false)
@@ -355,6 +355,10 @@ function StepCard({
         </Button>
 
         {!canRun && <span className="text-xs text-warning">Connect a mailbox first</span>}
+        {/* A run reads the step from the database, so unsaved edits would run the
+            previous configuration -- or fail outright when the template is still
+            unset. Blocking on `dirty` keeps what runs identical to what is shown. */}
+        {canRun && dirty && <span className="text-xs text-warning">Save your changes before running</span>}
       </div>
     </Card>
   )
