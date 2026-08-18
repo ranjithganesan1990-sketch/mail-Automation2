@@ -1,0 +1,396 @@
+<title>Connecting Gmail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Serif:ital@1&display=swap">
+
+<style>
+:root{
+  --paper:#FFFFFF; --surface:#F4F7FB; --surface-2:#E9EFF7;
+  --line:#D6DFEA; --line-strong:#B8C6D8;
+  --ink:#101B2B; --body:#1F2C3E; --muted:#5A6B82;
+  --brand:#1A6BD4; --brand-deep:#0E4A99; --brand-wash:#EAF2FD;
+  --warn:#8A5100; --warn-wash:#FDF5E6; --warn-line:#E6C689;
+  --danger:#A72E22;
+  --value-bg:#12202F; --value-fg:#F3F7FC; --value-line:transparent;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0D141E; --surface:#151F2C; --surface-2:#1C2836;
+    --line:#28374A; --line-strong:#3A4C63;
+    --ink:#E9EFF7; --body:#D3DEEB; --muted:#93A5BC;
+    --brand:#6BA8EF; --brand-deep:#A3C9F7; --brand-wash:#132539;
+    --warn:#E5B466; --warn-wash:#26200F; --warn-line:#544019;
+    --danger:#EF8478;
+    --value-bg:#060B12; --value-fg:#E9EFF7; --value-line:#28374A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0D141E; --surface:#151F2C; --surface-2:#1C2836;
+  --line:#28374A; --line-strong:#3A4C63;
+  --ink:#E9EFF7; --body:#D3DEEB; --muted:#93A5BC;
+  --brand:#6BA8EF; --brand-deep:#A3C9F7; --brand-wash:#132539;
+  --warn:#E5B466; --warn-wash:#26200F; --warn-line:#544019;
+  --danger:#EF8478;
+  --value-bg:#060B12; --value-fg:#E9EFF7; --value-line:#28374A;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--paper); color:var(--body);
+  font-family:"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:53rem; margin:0 auto; padding:4rem 1.5rem 5rem}
+
+.masthead{border-bottom:2px solid var(--ink); padding-bottom:1.75rem; margin-bottom:2.75rem}
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace; font-size:.7rem; font-weight:500;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--brand);
+}
+.eyebrow em{color:var(--muted); font-style:normal}
+h1{
+  font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;
+  font-weight:700; font-size:clamp(2.3rem,6vw,3.4rem); line-height:1.04;
+  letter-spacing:-.02em; color:var(--ink); text-wrap:balance;
+  margin:.7rem 0 0;
+}
+.lede{
+  font-family:"IBM Plex Serif",Georgia,serif; font-style:italic;
+  font-size:1.15rem; line-height:1.6; color:var(--muted);
+  max-width:46ch; margin:.9rem 0 0;
+}
+
+h2{
+  font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;
+  font-weight:700; font-size:1.6rem; letter-spacing:-.01em; color:var(--ink);
+  text-wrap:balance; margin:0;
+}
+h3{font-family:"IBM Plex Sans",sans-serif; font-weight:600; font-size:1rem; color:var(--ink); margin:0}
+p{margin:0; max-width:68ch}
+strong{font-weight:600; color:var(--ink)}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.87em;
+  background:var(--surface-2); color:var(--ink);
+  padding:.12em .38em; border-radius:3px; word-break:break-word;
+}
+.stack{display:flex; flex-direction:column; gap:1rem}
+.stack-lg{display:flex; flex-direction:column; gap:2.75rem}
+
+.concept{
+  background:var(--surface); border:1px solid var(--line);
+  border-radius:10px; padding:1.75rem;
+  display:flex; flex-direction:column; gap:1.1rem;
+}
+.flow{display:flex; flex-wrap:wrap; align-items:stretch; gap:.5rem}
+.flow-node{
+  flex:1 1 8rem; background:var(--paper); border:1px solid var(--line);
+  border-radius:7px; padding:.7rem .8rem;
+  display:flex; flex-direction:column; gap:.25rem;
+}
+.flow-node b{
+  font-family:"IBM Plex Mono",monospace; font-size:.65rem; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--muted); font-weight:500;
+}
+.flow-node span{font-size:.85rem; line-height:1.35; color:var(--body)}
+.flow-node.hit{border-color:var(--brand); background:var(--brand-wash)}
+.flow-arrow{
+  align-self:center; color:var(--line-strong); font-size:1.1rem;
+  font-family:"IBM Plex Mono",monospace;
+}
+
+.value{
+  background:var(--value-bg); color:var(--value-fg);
+  border:1px solid var(--value-line); border-radius:8px;
+  padding:.85rem 1rem; font-family:"IBM Plex Mono",monospace;
+  font-size:.83rem; line-height:1.5; word-break:break-all; overflow-x:auto;
+}
+.value-label{
+  font-family:"IBM Plex Mono",monospace; font-size:.68rem; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--muted); font-weight:500; margin-bottom:.4rem;
+}
+
+.step{display:grid; grid-template-columns:2.6rem 1fr; gap:1.25rem; align-items:start}
+.step-num{
+  font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:.8rem;
+  color:var(--brand); background:var(--brand-wash);
+  border:1px solid var(--line); border-radius:6px;
+  height:2.6rem; display:flex; align-items:center; justify-content:center;
+  font-variant-numeric:tabular-nums;
+}
+.step-body{display:flex; flex-direction:column; gap:.85rem; min-width:0; padding-top:.35rem}
+.path{
+  font-family:"IBM Plex Mono",monospace; font-size:.78rem; color:var(--muted);
+  background:var(--surface); border:1px solid var(--line);
+  border-radius:5px; padding:.45rem .65rem; line-height:1.5;
+  align-self:flex-start;
+}
+ul{margin:0; padding-left:1.1rem; display:flex; flex-direction:column; gap:.5rem}
+li{max-width:64ch}
+li::marker{color:var(--line-strong)}
+
+.note{
+  border-left:3px solid var(--warn-line); background:var(--warn-wash);
+  border-radius:0 7px 7px 0; padding:.9rem 1.1rem;
+  display:flex; flex-direction:column; gap:.4rem;
+}
+.note b{
+  font-family:"IBM Plex Mono",monospace; font-size:.68rem; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--warn); font-weight:600;
+}
+.note p{font-size:.92rem; color:var(--body)}
+
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:8px}
+table{border-collapse:collapse; width:100%; font-size:.88rem; min-width:36rem}
+th{
+  text-align:left; font-family:"IBM Plex Mono",monospace; font-weight:500;
+  font-size:.68rem; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--muted); background:var(--surface);
+  padding:.7rem .9rem; border-bottom:1px solid var(--line); white-space:nowrap;
+}
+td{padding:.75rem .9rem; border-bottom:1px solid var(--line); vertical-align:top; color:var(--body)}
+tr:last-child td{border-bottom:none}
+td.err{font-family:"IBM Plex Mono",monospace; font-size:.78rem; color:var(--danger); white-space:nowrap}
+
+.foot{
+  margin-top:4rem; padding-top:1.5rem; border-top:1px solid var(--line);
+  font-size:.82rem; color:var(--muted);
+  display:flex; flex-direction:column; gap:.4rem;
+}
+
+@media (max-width:34rem){
+  .wrap{padding:2.5rem 1.1rem 4rem}
+  .step{grid-template-columns:1fr; gap:.6rem}
+  .step-num{width:2.6rem}
+  .flow-arrow{display:none}
+}
+
+@media print{
+  .wrap{max-width:none; padding:0}
+  body{font-size:10.5pt}
+  .noprint{display:none}
+  .step,.concept,.note,.tablewrap{break-inside:avoid}
+  h2{break-after:avoid}
+  .value,.step-num,.note,th{-webkit-print-color-adjust:exact; print-color-adjust:exact}
+}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">Mail Automation <em>/ Gmail connection guide</em></div>
+    <h1>Connecting Gmail</h1>
+    <p class="lede">Creating the Google OAuth client, and getting the redirect URI right the first time.</p>
+  </header>
+
+  <div class="stack-lg">
+
+    <section class="stack">
+      <h2>First: what the redirect URI actually is</h2>
+      <p>This is the step that trips everyone up, so it is worth thirty seconds before you touch the console.</p>
+
+      <div class="concept">
+        <div class="flow">
+          <div class="flow-node"><b>1 &middot; You</b><span>Click <strong>Connect Gmail</strong> in the dashboard</span></div>
+          <div class="flow-arrow">&rarr;</div>
+          <div class="flow-node"><b>2 &middot; Google</b><span>Shows the consent screen and you approve</span></div>
+          <div class="flow-arrow">&rarr;</div>
+          <div class="flow-node hit"><b>3 &middot; Redirect URI</b><span>Google sends the browser back <em>here</em>, carrying a one-time code</span></div>
+          <div class="flow-arrow">&rarr;</div>
+          <div class="flow-node"><b>4 &middot; App</b><span>Trades that code for tokens and saves the mailbox</span></div>
+        </div>
+
+        <p>So the redirect URI is <strong>an address inside your own app that already exists</strong> &mdash; not a page you have to build, and not a value you invent. Google refuses to send anyone to an address you have not registered in advance, which is the only reason you paste it into the console by hand.</p>
+
+        <p>Three rules cover every mistake people make with it:</p>
+        <ul>
+          <li><strong>It must match character for character.</strong> A trailing slash, <code>http</code> where it should say <code>https</code>, or a different port number is a completely different URI as far as Google is concerned.</li>
+          <li><strong>One OAuth client can hold several.</strong> You do not need a second client for your deployed site &mdash; add both addresses to the client you already have.</li>
+          <li><strong>It points at the API, not at the page you end up looking at.</strong> The API receives the code, then bounces you to the dashboard.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="stack">
+      <h2>Your two exact values</h2>
+      <p>Register both on the same OAuth client. Local and deployed then both work, and you never have to think about this again.</p>
+
+      <div>
+        <div class="value-label">Local development</div>
+        <div class="value">http://localhost:4000/api/mail-accounts/oauth/callback</div>
+      </div>
+
+      <div>
+        <div class="value-label">Render deployment</div>
+        <div class="value">https://mail-automation-c7i9.onrender.com/api/mail-accounts/oauth/callback</div>
+      </div>
+
+      <div class="note">
+        <b>Leave GOOGLE_REDIRECT_URI unset on Render</b>
+        <p>The server builds this address itself from the URL Render assigns the service. Setting the variable by hand only creates a chance for the two to disagree &mdash; and a disagreement is precisely the failure you are trying to avoid.</p>
+      </div>
+    </section>
+
+    <section class="stack-lg">
+      <h2>Creating the credentials</h2>
+
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-body">
+          <h3>Open a Google Cloud project</h3>
+          <div class="path">console.cloud.google.com &rarr; project picker &rarr; New Project</div>
+          <p>Any project works. Name it something you will still recognise in a year; <code>mail-automation</code> does the job. Reuse an existing project if you already have one.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-body">
+          <h3>Turn on the Gmail API</h3>
+          <div class="path">APIs &amp; Services &rarr; Library &rarr; search &ldquo;Gmail API&rdquo; &rarr; Enable</div>
+          <p>Nothing else needs enabling. Skip it and the credentials still get created quite happily &mdash; then every send fails much later with a permission error, so do it now.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-body">
+          <h3>Fill in the consent screen</h3>
+          <div class="path">APIs &amp; Services &rarr; OAuth consent screen</div>
+          <ul>
+            <li>User type <strong>External</strong>, unless you pay for Google Workspace and will only ever connect company mailboxes.</li>
+            <li>App name and support email &mdash; these appear on the approval screen the mailbox owner sees.</li>
+            <li>Under <strong>Test users</strong>, add every Gmail address you intend to connect, including your own.</li>
+          </ul>
+          <div class="note">
+            <b>Skipping test users is the second most common failure</b>
+            <p>Mail Automation asks to read and send mail, which Google treats as sensitive. While the app is in Testing, only the addresses listed here can grant that. Everyone else gets &ldquo;Access blocked&rdquo; and no useful explanation.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-body">
+          <h3>Create the OAuth client</h3>
+          <div class="path">APIs &amp; Services &rarr; Credentials &rarr; Create credentials &rarr; OAuth client ID</div>
+          <ul>
+            <li>Application type: <strong>Web application</strong>. Not Desktop &mdash; a desktop client cannot use these redirect URIs at all.</li>
+            <li>Leave <strong>Authorised JavaScript origins</strong> empty. This app has no use for it.</li>
+            <li>Under <strong>Authorised redirect URIs</strong>, click <em>Add URI</em> twice and paste both values from the previous page.</li>
+          </ul>
+          <p>Paste rather than retype. One wrong character produces an error message that looks nothing like a typo.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">05</div>
+        <div class="step-body">
+          <h3>Keep the client ID and secret</h3>
+          <p>Google shows both once, on a panel straight after you click Create. The ID always ends in <code>.apps.googleusercontent.com</code>. Losing the secret costs you nothing much &mdash; generate a fresh one on the same client rather than starting over.</p>
+          <div class="note">
+            <b>The secret is a password</b>
+            <p>Anyone holding it can request Gmail access in your name. Keep it out of screenshots, commits and chat messages.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">06</div>
+        <div class="step-body">
+          <h3>Give them to the app</h3>
+          <p>Two routes that do the same job. The app reads its database first and falls back to environment variables, so whichever you choose, the other stays available.</p>
+          <ul>
+            <li><strong>Through the dashboard.</strong> Settings &rarr; Google OAuth &rarr; paste both &rarr; Save credentials. Restricted to the instance owner, which means a member of the oldest workspace on that server.</li>
+            <li><strong>Through the environment.</strong> Set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>. On Render that is the Environment tab, and saving restarts the service for you. Use this when the Settings card is not available to your account.</li>
+          </ul>
+          <p>Credentials live in the database, not in the code, so configuring your local copy does nothing for the deployed one. Each site needs doing once.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">07</div>
+        <div class="step-body">
+          <h3>Connect the mailbox</h3>
+          <div class="path">Mailboxes &rarr; Connect Gmail</div>
+          <p>Approve the request while signed in as the mailbox owner. The app stores an encrypted refresh token, so sending carries on without anyone signing in again, and the mailbox appears with a green status once it lands.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack">
+      <h2>When it fails</h2>
+      <p>The first two happen on Google&rsquo;s side and never reach the app. The rest come back as a code in the dashboard&rsquo;s address bar.</p>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>What you see</th><th>What it means</th><th>What to do</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="err">redirect_uri_mismatch</td>
+              <td>The address the app sent matches none of the URIs registered on the client.</td>
+              <td>Compare the two strings character by character. Usual culprits: a trailing slash, <code>http</code> against <code>https</code>, or the deployed URI never added.</td>
+            </tr>
+            <tr>
+              <td class="err">Access blocked</td>
+              <td>That Google account is not a test user, on an app still in Testing.</td>
+              <td>Add the address under OAuth consent screen &rarr; Test users.</td>
+            </tr>
+            <tr>
+              <td class="err">exchange_failed</td>
+              <td>Google rejected the code-for-token swap.</td>
+              <td>The client secret is wrong, truncated, or belongs to a different client than the ID.</td>
+            </tr>
+            <tr>
+              <td class="err">expired_state</td>
+              <td>Too long passed between starting the flow and approving it.</td>
+              <td>Click Connect Gmail again.</td>
+            </tr>
+            <tr>
+              <td class="err">access_denied</td>
+              <td>The permission request was declined on the consent screen.</td>
+              <td>Retry and accept. If there is no accept button to press, you are hitting the test-user problem above.</td>
+            </tr>
+            <tr>
+              <td class="err">missing_code</td>
+              <td>Google came back without an authorisation code.</td>
+              <td>Almost always a stale or hand-edited callback URL. Start again from the dashboard.</td>
+            </tr>
+            <tr>
+              <td class="err">no_email</td>
+              <td>The profile permissions were not granted.</td>
+              <td>Reconnect, leaving every requested permission ticked.</td>
+            </tr>
+            <tr>
+              <td class="err">plan_limit</td>
+              <td>The workspace already holds as many mailboxes as its plan allows.</td>
+              <td>Remove a mailbox, or move up a plan.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="stack">
+      <h2>Two things that bite later</h2>
+
+      <div class="note">
+        <b>Testing mode expires refresh tokens after seven days</b>
+        <p>While the consent screen stays in Testing, Google invalidates stored refresh tokens on a weekly cycle, and every connected mailbox quietly stops sending until somebody reconnects it. Fine while you are trying the app out. Publish the consent screen before you depend on it.</p>
+      </div>
+
+      <div class="note">
+        <b>Never rotate ENCRYPTION_KEY once a mailbox is connected</b>
+        <p>That key decrypts the stored refresh tokens. Change it and every existing mailbox becomes unreadable with no way back &mdash; each one has to be connected again from scratch.</p>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="foot">
+    <div>Mail Automation &mdash; Gmail connection guide</div>
+    <div class="noprint">To save as PDF: press Ctrl&nbsp;+&nbsp;P, then choose &ldquo;Save as PDF&rdquo; as the destination.</div>
+  </footer>
+</div>
