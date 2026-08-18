@@ -361,7 +361,7 @@ function ThreadPane({
   }
 
   return (
-    <Card className="flex max-h-[calc(100vh-13rem)] flex-col overflow-hidden">
+    <Card className="flex flex-col overflow-hidden">
       <div className="flex items-start justify-between gap-3 border-b border-ink-200 p-4">
         <div className="min-w-0">
           <h2 className="truncate text-base font-semibold text-ink-900">
@@ -377,7 +377,7 @@ function ThreadPane({
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="max-h-[26rem] min-h-[8rem] overflow-y-auto">
         <div className="flex flex-col gap-4 p-4">
           {thread.data.messages.map((message) => (
             <div key={message.id} className="rounded-lg border border-ink-200">
@@ -397,67 +397,67 @@ function ThreadPane({
             </div>
           ))}
         </div>
-
-        <div className="border-t border-ink-200 bg-ink-50/60 p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm font-medium text-ink-800">
-              <Sparkles className="h-4 w-4 text-brand-500" />
-              AI reply suggestion
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Select value={tone} onChange={(e) => setTone(e.target.value as Tone)} className="h-8 py-0 text-xs">
-                {TONES.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </Select>
-              <Button
-                size="sm"
-                variant="primary"
-                icon={<Bot className="h-4 w-4" />}
-                disabled={!aiConfigured || suggest.isPending}
-                loading={suggest.isPending}
-                onClick={() => suggest.mutate(suggestions.length ? { tone } : {})}
-              >
-                {suggestions.length ? 'Regenerate' : 'Generate AI reply'}
-              </Button>
-            </div>
-          </div>
-
-          {!aiConfigured && (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              AI replies are not configured on this server yet. Add a GROQ_API_KEY and restart.
-            </p>
-          )}
-
-          {suggest.isPending && (
-            <p className="flex items-center gap-2 text-sm text-ink-500">
-              <Spinner className="h-4 w-4" /> Analyzing conversation…
-            </p>
-          )}
-
-          {suggestions.length > 0 && !suggest.isPending && (
-            <div className="grid gap-2 sm:grid-cols-3">
-              {suggestions.map((suggestion, i) => (
-                <button
-                  key={`${suggestion.tone}-${i}`}
-                  type="button"
-                  onClick={() => setReply(suggestion.html)}
-                  className="rounded-lg border border-ink-200 bg-white p-3 text-left transition hover:border-brand-300 hover:shadow-sm"
-                >
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-600">
-                    {TONE_LABELS[suggestion.tone] ?? suggestion.tone}
-                  </div>
-                  <p className="line-clamp-6 whitespace-pre-wrap text-xs text-ink-600">{suggestion.body}</p>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
-      <div className="border-t border-ink-200 p-4">
+      <div className="shrink-0 border-t border-ink-200 bg-ink-50/60 p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-ink-800">
+            <Sparkles className="h-4 w-4 text-brand-500" />
+            AI reply suggestion
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={tone} onChange={(e) => setTone(e.target.value as Tone)} className="h-8 py-0 text-xs">
+              {TONES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </Select>
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<Bot className="h-4 w-4" />}
+              disabled={!aiConfigured || suggest.isPending}
+              loading={suggest.isPending}
+              onClick={() => suggest.mutate(suggestions.length ? { tone } : {})}
+            >
+              {suggestions.length ? 'Regenerate' : 'Generate AI reply'}
+            </Button>
+          </div>
+        </div>
+
+        {!aiConfigured && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            AI replies are not configured on this server yet. Add a GROQ_API_KEY and restart.
+          </p>
+        )}
+
+        {suggest.isPending && (
+          <p className="flex items-center gap-2 text-sm text-ink-500">
+            <Spinner className="h-4 w-4" /> Analyzing conversation…
+          </p>
+        )}
+
+        {suggestions.length > 0 && !suggest.isPending && (
+          <div className="grid gap-2 sm:grid-cols-3">
+            {suggestions.map((suggestion, i) => (
+              <button
+                key={`${suggestion.tone}-${i}`}
+                type="button"
+                onClick={() => setReply(suggestion.html)}
+                className="rounded-lg border border-ink-200 bg-white p-3 text-left transition hover:border-brand-300 hover:shadow-sm"
+              >
+                <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-600">
+                  {TONE_LABELS[suggestion.tone] ?? suggestion.tone}
+                </div>
+                <p className="line-clamp-6 whitespace-pre-wrap text-xs text-ink-600">{suggestion.body}</p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="shrink-0 border-t border-ink-200 p-4">
         <p className="mb-2 text-xs text-ink-500">
           Replying to {latest ? displayName(latest.from) : 'this conversation'} — stays in the same Gmail thread.
         </p>
