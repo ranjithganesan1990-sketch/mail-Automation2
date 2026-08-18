@@ -77,7 +77,14 @@ Requirements:
 - Write the reply body only: no subject line, no "Here is your reply", no commentary.
 - Never state that you are an AI.
 
-Return plain text. Use blank lines between paragraphs. Do not use markdown or HTML.`
+Return plain text, never markdown or HTML.
+
+Lay the reply out like a real email, separating these with a blank line:
+- the greeting on its own line ("Hi John,")
+- one or two short body paragraphs
+- the sign-off and name on the final lines ("Best regards," then the name)
+
+Never run the greeting, body and sign-off together into a single paragraph.`
 
 /** Keeps the prompt inside a sane token budget on long threads. */
 const MAX_MESSAGES = 8

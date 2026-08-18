@@ -70,7 +70,7 @@ export const env = {
   // VITE_ prefix, because Vite inlines those into the client bundle.
   groq: {
     apiKey: optional('GROQ_API_KEY'),
-    model: optional('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+    model: optional('GROQ_MODEL', 'openai/gpt-oss-120b'),
   },
 
   uploadDir: optional('UPLOAD_DIR', 'uploads'),
