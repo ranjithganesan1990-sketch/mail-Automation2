@@ -44,7 +44,17 @@ services:
 
     # db:deploy runs in the runtime environment, where the internal DATABASE_URL
     # is reachable (a build container cannot see the private network).
-    startCommand: npm run db:deploy && npm run start
+    #
+    # TEMPORARY: `npm run seed` creates the demo workspace
+    # (demo@mailautomation.app / demo12345). Free instances have no shell, so
+    # seeding has to ride along with the start command. Remove the seed step
+    # once the demo data exists -- the seed upserts, so re-running is harmless
+    # to the data, but it re-hashes the demo password with bcrypt on every
+    # restart and wake-from-sleep, which is wasted CPU on a 0.1-core instance.
+    #
+    # `|| true` matters: without it a failed seed aborts the whole start
+    # command and takes the service down, rather than just skipping demo data.
+    startCommand: npm run db:deploy && (npm run seed || true) && npm run start
 
     healthCheckPath: /api/health
 
