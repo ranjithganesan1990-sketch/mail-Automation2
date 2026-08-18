@@ -235,3 +235,57 @@ export const STEP_LABELS: Record<StepKind, string> = {
 }
 
 export const STEP_ORDER: StepKind[] = ['NEW', 'FOLLOWUP_1', 'FOLLOWUP_2', 'FOLLOWUP_3']
+
+// ----------------------------- INBOX ---------------------------------
+
+export type Tone = 'professional' | 'short' | 'friendly' | 'concise' | 'persuasive' | 'formal'
+
+export interface InboxAccount {
+  id: string
+  email: string
+  name: string | null
+}
+
+/** A message as returned when a whole thread is opened. */
+export interface ThreadMessage {
+  id: string
+  threadId: string
+  rfcMessageId: string | null
+  from: string
+  to: string
+  subject: string
+  date: string
+  html: string
+  snippet: string
+}
+
+/** A message in the inbox list, which also carries Gmail's label state. */
+export interface InboxMessage extends ThreadMessage {
+  unread: boolean
+  starred: boolean
+  hasAttachment: boolean
+}
+
+export interface InboxPage {
+  account: InboxAccount
+  messages: InboxMessage[]
+  nextPageToken: string | null
+  historyId: string | null
+  aiConfigured: boolean
+}
+
+export interface InboxThread {
+  threadId: string
+  subject: string
+  messages: ThreadMessage[]
+  account: InboxAccount
+  aiConfigured: boolean
+}
+
+export interface Suggestion {
+  tone: Tone
+  /** Plain text, shown in the suggestion card. */
+  body: string
+  /** The same reply as HTML, loaded into the editor when picked. */
+  html: string
+}

@@ -101,6 +101,11 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
 
+      # AI reply suggestions in the Inbox. Server-side only.
+      # Without it the Inbox works and the Generate button explains it is off.
+      - key: GROQ_API_KEY
+        sync: false
+
       # Optional. Leave blank to run everything on the Free plan.
       - key: STRIPE_SECRET_KEY
         sync: false

@@ -313,3 +313,136 @@ export async function fetchBouncedAddresses(gmail: gmail_v1.Gmail, ownEmail: str
 
   return bounced
 }
+
+// ----------------------------- INBOX ---------------------------------
+// Reading the mailbox reuses getGmailClient() above, so token refresh,
+// decryption and NEEDS_REAUTH flagging behave exactly as they do for
+// campaign sending. No second authentication path exists.
+
+export interface InboxListItem extends ParsedMessage {
+  unread: boolean
+  starred: boolean
+  hasAttachment: boolean
+}
+
+export interface InboxPage {
+  messages: InboxListItem[]
+  nextPageToken: string | null
+  historyId: string | null
+}
+
+/** Fetches headers only. Bodies are loaded when a thread is opened. */
+const LIST_HEADERS = ['From', 'To', 'Subject', 'Date', 'Message-ID']
+
+export async function listInboxMessages(
+  gmail: gmail_v1.Gmail,
+  options: { q?: string; pageToken?: string; maxResults?: number } = {},
+): Promise<InboxPage> {
+  const q = options.q?.trim() || 'in:inbox'
+  const maxResults = Math.min(Math.max(options.maxResults ?? 25, 1), 50)
+
+  const list = await gmail.users.messages.list({
+    userId: 'me',
+    q,
+    maxResults,
+    ...(options.pageToken ? { pageToken: options.pageToken } : {}),
+  })
+
+  const stubs = list.data.messages ?? []
+  if (!stubs.length) {
+    return { messages: [], nextPageToken: null, historyId: null }
+  }
+
+  // Which of these carry attachments? Asking Gmail to filter the same page
+  // costs one extra ids-only call, where reading every message in full
+  // format to inspect its parts would cost one heavy call per message.
+  const withAttachments = new Set<string>()
+  try {
+    const attachmentPage = await gmail.users.messages.list({
+      userId: 'me',
+      q: `${q} has:attachment`,
+      maxResults,
+      ...(options.pageToken ? { pageToken: options.pageToken } : {}),
+    })
+    for (const stub of attachmentPage.data.messages ?? []) {
+      if (stub.id) withAttachments.add(stub.id)
+    }
+  } catch {
+    // A failed indicator lookup must not cost the user their inbox.
+  }
+
+  const messages = await Promise.all(
+    stubs.map(async (stub) => {
+      if (!stub.id) return null
+      const full = await gmail.users.messages.get({
+        userId: 'me',
+        id: stub.id,
+        format: 'metadata',
+        metadataHeaders: LIST_HEADERS,
+      })
+      const labels = full.data.labelIds ?? []
+      return {
+        ...parseMessage(full.data),
+        unread: labels.includes('UNREAD'),
+        starred: labels.includes('STARRED'),
+        hasAttachment: withAttachments.has(stub.id),
+      } satisfies InboxListItem
+    }),
+  )
+
+  return {
+    messages: messages.filter((m): m is InboxListItem => m !== null),
+    nextPageToken: list.data.nextPageToken ?? null,
+    historyId: null,
+  }
+}
+
+/** Read/unread and star toggles, used by the inbox list. */
+export async function modifyMessageLabels(
+  gmail: gmail_v1.Gmail,
+  messageId: string,
+  changes: { add?: string[]; remove?: string[] },
+): Promise<void> {
+  await gmail.users.messages.modify({
+    userId: 'me',
+    id: messageId,
+    requestBody: {
+      ...(changes.add?.length ? { addLabelIds: changes.add } : {}),
+      ...(changes.remove?.length ? { removeLabelIds: changes.remove } : {}),
+    },
+  })
+}
+
+export async function getCurrentHistoryId(gmail: gmail_v1.Gmail): Promise<string | null> {
+  const res = await gmail.users.getProfile({ userId: 'me' })
+  return res.data.historyId ?? null
+}
+
+/**
+ * Cheap "anything new?" check. Gmail returns only what changed since the
+ * given point, so this stays a single small request no matter how large the
+ * mailbox is -- the alternative being to re-download the inbox on a timer.
+ */
+export async function countNewMessagesSince(
+  gmail: gmail_v1.Gmail,
+  startHistoryId: string,
+): Promise<{ count: number; historyId: string | null }> {
+  try {
+    const res = await gmail.users.history.list({
+      userId: 'me',
+      startHistoryId,
+      historyTypes: ['messageAdded'],
+      labelId: 'INBOX',
+      maxResults: 100,
+    })
+    const count = (res.data.history ?? []).reduce((sum, entry) => sum + (entry.messagesAdded?.length ?? 0), 0)
+    return { count, historyId: res.data.historyId ?? null }
+  } catch (err) {
+    // Gmail expires history older than about a week and answers 404. That is
+    // not an error for us -- it just means "resync from scratch".
+    if ((err as { code?: number }).code === 404) {
+      return { count: 0, historyId: await getCurrentHistoryId(gmail) }
+    }
+    throw err
+  }
+}

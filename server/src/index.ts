@@ -17,6 +17,7 @@ import { campaignRouter } from './routes/campaign.routes.js'
 import { contactRouter } from './routes/contact.routes.js'
 import { attachmentRouter } from './routes/attachment.routes.js'
 import { runRouter } from './routes/run.routes.js'
+import { inboxRouter } from './routes/inbox.routes.js'
 import { dashboardRouter } from './routes/dashboard.routes.js'
 import { billingRouter } from './routes/billing.routes.js'
 import { webhookRouter } from './routes/webhook.routes.js'
@@ -57,6 +58,7 @@ app.use('/api/campaigns', campaignRouter)
 app.use('/api/contacts', contactRouter)
 app.use('/api/attachments', attachmentRouter)
 app.use('/api/runs', runRouter)
+app.use('/api/inbox', inboxRouter)
 app.use('/api/dashboard', dashboardRouter)
 app.use('/api/billing', billingRouter)
 

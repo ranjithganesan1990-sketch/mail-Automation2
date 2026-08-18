@@ -6,6 +6,7 @@ import {
   ChevronDown,
   CreditCard,
   FileText,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -23,6 +24,7 @@ import PlanLimitPrompt from './PlanLimitPrompt'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/inbox', label: 'Inbox', icon: Inbox },
   { to: '/campaigns', label: 'Campaigns', icon: Send },
   { to: '/templates', label: 'Templates', icon: FileText },
   { to: '/contacts', label: 'Contacts', icon: Users },

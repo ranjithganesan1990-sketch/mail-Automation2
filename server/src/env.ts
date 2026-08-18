@@ -65,6 +65,14 @@ export const env = {
     webhookSecret: optional('STRIPE_WEBHOOK_SECRET'),
   },
 
+  // Groq powers the Inbox AI reply suggestions. This key is read on the server
+  // only -- it must never be exposed to the browser, and must never be given a
+  // VITE_ prefix, because Vite inlines those into the client bundle.
+  groq: {
+    apiKey: optional('GROQ_API_KEY'),
+    model: optional('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+  },
+
   uploadDir: optional('UPLOAD_DIR', 'uploads'),
   maxUploadBytes: int('MAX_UPLOAD_BYTES', 15 * 1024 * 1024),
 

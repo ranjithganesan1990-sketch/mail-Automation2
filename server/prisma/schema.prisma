@@ -20,16 +20,16 @@ datasource db {
 // ------------------------- IDENTITY -------------------------
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
+  id           String   @id @default(cuid())
+  email        String   @unique
   name         String
   passwordHash String
-  avatarColor  String       @default("#1E88E5")
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  avatarColor  String   @default("#1E88E5")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  memberships  Membership[]
-  activity     ActivityLog[]
+  memberships Membership[]
+  activity    ActivityLog[]
 }
 
 enum Role {
@@ -70,14 +70,15 @@ model Organization {
   maxMailAccounts Int @default(1)
   maxCampaigns    Int @default(3)
 
-  members      Membership[]
-  campaigns    Campaign[]
-  templates    Template[]
-  mailAccounts MailAccount[]
-  attachments  Attachment[]
-  runs         Run[]
-  activity     ActivityLog[]
-  digests      Digest[]
+  members       Membership[]
+  campaigns     Campaign[]
+  templates     Template[]
+  mailAccounts  MailAccount[]
+  attachments   Attachment[]
+  runs          Run[]
+  activity      ActivityLog[]
+  digests       Digest[]
+  aiSuggestions AiSuggestion[]
   billingEvents BillingEvent[]
 }
 
@@ -120,18 +121,18 @@ enum MailAccountStatus {
 }
 
 model MailAccount {
-  id        String            @id @default(cuid())
-  orgId     String
-  email     String
-  name      String?
-  provider  String            @default("gmail")
-  status    MailAccountStatus @default(ACTIVE)
+  id       String            @id @default(cuid())
+  orgId    String
+  email    String
+  name     String?
+  provider String            @default("gmail")
+  status   MailAccountStatus @default(ACTIVE)
 
   // AES-256-GCM encrypted at rest (see lib/crypto.ts)
-  accessToken  String? @db.Text
-  refreshToken String? @db.Text
+  accessToken  String?   @db.Text
+  refreshToken String?   @db.Text
   expiresAt    DateTime?
-  scope        String? @db.Text
+  scope        String?   @db.Text
 
   isDefault Boolean  @default(false)
   lastError String?  @db.Text
@@ -253,9 +254,9 @@ model CampaignStep {
   attachmentId String?
 
   processedAt DateTime?
-  sentCount   Int     @default(0)
-  failedCount Int     @default(0)
-  notes       String? @db.Text
+  sentCount   Int       @default(0)
+  failedCount Int       @default(0)
+  notes       String?   @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -342,13 +343,13 @@ enum RunTrigger {
 
 // Replaces the PropertiesService progress checkpointing + chunked resume.
 model Run {
-  id         String     @id @default(cuid())
+  id         String       @id @default(cuid())
   orgId      String
   campaignId String
   stepId     String?
   kind       StepKind
-  trigger    RunTrigger @default(MANUAL)
-  status     RunStatus  @default(QUEUED)
+  trigger    RunTrigger   @default(MANUAL)
+  status     RunStatus    @default(QUEUED)
   mode       DeliveryMode @default(DRAFT)
 
   total     Int @default(0)
@@ -421,13 +422,13 @@ model ActivityLog {
 
 // Daily digest email record (replaces sendCampaignCompletionEmail).
 model Digest {
-  id      String   @id @default(cuid())
+  id      String    @id @default(cuid())
   orgId   String
   forDate DateTime
-  stats   Json     @default("{}")
+  stats   Json      @default("{}")
   sentTo  String?
   sentAt  DateTime?
-  error   String?  @db.Text
+  error   String?   @db.Text
 
   createdAt DateTime @default(now())
 
@@ -455,6 +456,28 @@ model AppSetting {
   googleRedirectUri  String?
 
   // Audit trail for the last edit.
-  updatedById String?
+  updatedById    String?
   updatedByEmail String?
+}
+
+// --------------------------- INBOX / AI ------------------------------
+
+// Only the generated text is stored. Message bodies are always read back
+// from Gmail, so the mailbox stays the single source of truth and we are not
+// holding a second copy of anyone's mail.
+model AiSuggestion {
+  id          String   @id @default(cuid())
+  orgId       String
+  accountId   String
+  threadId    String
+  tone        String
+  body        String   @db.Text
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Every lookup is scoped by orgId first -- a thread id alone must never be
+  // enough to reach another workspace's suggestions.
+  @@index([orgId, accountId, threadId])
 }
