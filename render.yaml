@@ -1,5 +1,5 @@
 # =============================================================
-#  RENDER BLUEPRINT — Mail Automation
+#  RENDER BLUEPRINT — Mail Automation  (FREE TIER — for testing)
 #
 #  One Web Service serves BOTH the Express API and the built React
 #  dashboard from the same origin, so the relative `/api/...` calls in
@@ -8,22 +8,33 @@
 #  Deploy:  Render Dashboard -> New + -> Blueprint -> pick this repo.
 #  Change `region` below if you want a datacentre closer to your users
 #  (oregon | ohio | virginia | frankfurt | singapore).
+#
+#  FREE-TIER CAVEATS — these change behaviour, not just speed. See
+#  DEPLOY-RENDER.md "Free-tier limits" before trusting it with real sends:
+#    1. The instance sleeps after ~15 min idle, which freezes node-cron.
+#       Scheduled campaigns fire whenever somebody next loads the site.
+#    2. No disk is allowed, so attachments are wiped on every redeploy,
+#       restart and wake-from-sleep.
+#    3. The free database is deleted 30 days after creation.
+#
+#  To go to production, restore the paid settings — the four spots are
+#  marked "PROD:" below (the pre-change file is also in git at 113354b).
 # =============================================================
 
 databases:
   - name: mail-automation-db
     databaseName: mail_automation
     user: mail_automation
-    
-    plan: basic-256mb
+
+    plan: free             # PROD: basic-256mb
     region: singapore
 
 services:
   - type: web
     name: mail-automation
     runtime: node
-    plan: starter          # always-on: required, or node-cron stops while the
-                           # instance sleeps and daily sends / follow-ups never fire
+    plan: free             # PROD: starter -- always-on, so node-cron keeps
+                           # firing daily sends and follow-ups on schedule
     region: singapore
     branch: main
 
@@ -37,12 +48,14 @@ services:
 
     healthCheckPath: /api/health
 
-    # Attachments are written to disk by multer. Without this they vanish on
-    # every redeploy, and campaigns referencing them fail to send.
-    disk:
-      name: uploads
-      mountPath: /var/data
-      sizeGB: 1
+    # PROD: add a disk here, or attachments vanish on every redeploy and
+    # campaigns referencing them fail at send time. Disks are not available
+    # on the free plan, which is why this block is absent.
+    #
+    # disk:
+    #   name: uploads
+    #   mountPath: /var/data
+    #   sizeGB: 1
 
     envVars:
       - key: NODE_VERSION
@@ -68,7 +81,7 @@ services:
       # injects with this service's real https:// address.
 
       - key: UPLOAD_DIR
-        value: /var/data/uploads
+        value: uploads     # PROD: /var/data/uploads (the mounted disk)
       - key: MAX_UPLOAD_BYTES
         value: "15728640"
 
