@@ -1,0 +1,460 @@
+// =============================================================
+//  MAIL AUTOMATION SAAS — DATA MODEL
+//  Sheet  -> Table mapping
+//    Main1..Main10        -> Campaign + Contact
+//    Process sheet        -> Campaign.mailAccount / attachment
+//    AutoProcess row      -> Campaign + 4x CampaignStep
+//    Dashboard sheet      -> derived from Run / CampaignStep
+//    Drive template files -> Template + TemplateVersion
+// =============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------- IDENTITY -------------------------
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  passwordHash String
+  avatarColor  String       @default("#1E88E5")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  memberships  Membership[]
+  activity     ActivityLog[]
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Operational settings (replaces the CONFIG block of the Apps Script)
+  timezone        String  @default("Asia/Kolkata")
+  dailyRunHour    Int     @default(6)
+  dailyRunMinute  Int     @default(30)
+  automationOn    Boolean @default(true)
+  sendDailyDigest Boolean @default(true)
+  digestEmail     String?
+  autoCleanBounce Boolean @default(true)
+
+  // ---- Billing (see lib/plans.ts for the catalog) ----
+  planId               String    @default("free")
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  // Mirrors the Stripe subscription status: active, trialing, past_due, canceled…
+  subscriptionStatus   String?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+
+  // Effective limits. Synced from the plan on every subscription change, but
+  // writable so a custom deal can exceed its tier.
+  maxContacts     Int @default(500)
+  maxDailyDrafts  Int @default(100)
+  maxMailAccounts Int @default(1)
+  maxCampaigns    Int @default(3)
+
+  members      Membership[]
+  campaigns    Campaign[]
+  templates    Template[]
+  mailAccounts MailAccount[]
+  attachments  Attachment[]
+  runs         Run[]
+  activity     ActivityLog[]
+  digests      Digest[]
+  billingEvents BillingEvent[]
+}
+
+// Append-only record of processed Stripe webhooks. The unique stripeEventId
+// makes replayed deliveries idempotent.
+model BillingEvent {
+  id            String   @id @default(cuid())
+  orgId         String?
+  stripeEventId String   @unique
+  type          String
+  payload       Json     @default("{}")
+  processedAt   DateTime @default(now())
+
+  org Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, processedAt])
+}
+
+model Membership {
+  id     String @id @default(cuid())
+  userId String
+  orgId  String
+  role   Role   @default(MEMBER)
+
+  createdAt DateTime @default(now())
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+  @@index([orgId])
+}
+
+// ---------------------- GMAIL CONNECTION --------------------
+
+enum MailAccountStatus {
+  ACTIVE
+  NEEDS_REAUTH
+  DISABLED
+}
+
+model MailAccount {
+  id        String            @id @default(cuid())
+  orgId     String
+  email     String
+  name      String?
+  provider  String            @default("gmail")
+  status    MailAccountStatus @default(ACTIVE)
+
+  // AES-256-GCM encrypted at rest (see lib/crypto.ts)
+  accessToken  String? @db.Text
+  refreshToken String? @db.Text
+  expiresAt    DateTime?
+  scope        String? @db.Text
+
+  isDefault Boolean  @default(false)
+  lastError String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@unique([orgId, email])
+  @@index([orgId])
+}
+
+// -------------------------- TEMPLATES -----------------------
+
+model Template {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  subject     String   @default("{{Company Name}}")
+  html        String   @db.Text
+  version     Int      @default(1)
+  isArchived  Boolean  @default(false)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  versions TemplateVersion[]
+  steps    CampaignStep[]
+
+  @@unique([orgId, name])
+  @@index([orgId, isArchived])
+}
+
+model TemplateVersion {
+  id         String   @id @default(cuid())
+  templateId String
+  version    Int
+  subject    String
+  html       String   @db.Text
+  note       String?
+  createdAt  DateTime @default(now())
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version])
+}
+
+// -------------------------- CAMPAIGNS -----------------------
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+model Campaign {
+  id          String         @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  status      CampaignStatus @default(DRAFT)
+
+  mailAccountId String?
+  attachmentId  String?
+
+  // DRAFT = create Gmail drafts for review (Apps Script parity). SEND = send immediately.
+  deliveryMode DeliveryMode @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org         Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  mailAccount MailAccount?   @relation(fields: [mailAccountId], references: [id], onDelete: SetNull)
+  attachment  Attachment?    @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+  contacts    Contact[]
+  steps       CampaignStep[]
+  runs        Run[]
+
+  @@unique([orgId, name])
+  @@index([orgId, status])
+}
+
+enum DeliveryMode {
+  DRAFT
+  SEND
+}
+
+enum StepKind {
+  NEW
+  FOLLOWUP_1
+  FOLLOWUP_2
+  FOLLOWUP_3
+}
+
+enum StepStatus {
+  PENDING
+  SCHEDULED
+  PROCESSING
+  PROCESSED
+  SKIPPED
+  NO_TEMPLATE
+  FAILED
+}
+
+// One row of the AutoProcess sheet == one Campaign with four of these.
+model CampaignStep {
+  id         String     @id @default(cuid())
+  campaignId String
+  kind       StepKind
+  status     StepStatus @default(PENDING)
+
+  scheduledFor DateTime?
+  templateId   String?
+  attachmentId String?
+
+  processedAt DateTime?
+  sentCount   Int     @default(0)
+  failedCount Int     @default(0)
+  notes       String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaign   Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  template   Template?   @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  attachment Attachment? @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+  runs       Run[]
+
+  @@unique([campaignId, kind])
+  @@index([status, scheduledFor])
+}
+
+// --------------------------- CONTACTS -----------------------
+
+enum ContactStatus {
+  ACTIVE
+  BOUNCED
+  UNSUBSCRIBED
+  COMPLETED
+}
+
+model Contact {
+  id         String        @id @default(cuid())
+  campaignId String
+  email      String
+  status     ContactStatus @default(ACTIVE)
+
+  // Arbitrary spreadsheet columns -> merge variables ({{Company Name}} etc.)
+  fields Json @default("{}")
+
+  // Gmail threading state (was ThreadId / RfcMessageId / LastMessageHtml columns)
+  threadId        String?
+  rfcMessageId    String?
+  lastMessageHtml String? @db.Text
+  lastTemplateId  String?
+  lastStatus      String?
+  bounceReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  runItems RunItem[]
+
+  @@unique([campaignId, email])
+  @@index([campaignId, status])
+}
+
+// ------------------------- ATTACHMENTS ----------------------
+
+model Attachment {
+  id         String   @id @default(cuid())
+  orgId      String
+  filename   String
+  mimeType   String
+  size       Int
+  storageKey String
+  createdAt  DateTime @default(now())
+
+  org       Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+  steps     CampaignStep[]
+
+  @@index([orgId])
+}
+
+// ---------------------------- RUNS --------------------------
+
+enum RunStatus {
+  QUEUED
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum RunTrigger {
+  MANUAL
+  SCHEDULED
+  TEST
+}
+
+// Replaces the PropertiesService progress checkpointing + chunked resume.
+model Run {
+  id         String     @id @default(cuid())
+  orgId      String
+  campaignId String
+  stepId     String?
+  kind       StepKind
+  trigger    RunTrigger @default(MANUAL)
+  status     RunStatus  @default(QUEUED)
+  mode       DeliveryMode @default(DRAFT)
+
+  total     Int @default(0)
+  processed Int @default(0)
+  succeeded Int @default(0)
+  failed    Int @default(0)
+  skipped   Int @default(0)
+
+  // Cursor for resuming a paused chunk on the next worker tick.
+  cursor     String?
+  limitCount Int?
+
+  error      String?   @db.Text
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  step     CampaignStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
+  items    RunItem[]
+
+  @@index([orgId, startedAt])
+  @@index([status])
+}
+
+enum RunItemStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+model RunItem {
+  id        String        @id @default(cuid())
+  runId     String
+  contactId String
+  status    RunItemStatus
+  email     String
+
+  gmailDraftId   String?
+  gmailMessageId String?
+  threadId       String?
+  subject        String?
+  error          String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  run     Run     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([runId, status])
+}
+
+// ------------------------ OBSERVABILITY ---------------------
+
+model ActivityLog {
+  id      String  @id @default(cuid())
+  orgId   String
+  userId  String?
+  type    String
+  message String
+  meta    Json    @default("{}")
+
+  createdAt DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+}
+
+// Daily digest email record (replaces sendCampaignCompletionEmail).
+model Digest {
+  id      String   @id @default(cuid())
+  orgId   String
+  forDate DateTime
+  stats   Json     @default("{}")
+  sentTo  String?
+  sentAt  DateTime?
+  error   String?  @db.Text
+
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, forDate])
+}
+
+// --------------------- INSTANCE SETTINGS ---------------------
+// Server-wide configuration that used to live only in server/.env.
+// Holding it here lets an instance admin change credentials from the
+// dashboard without editing a file and restarting the API.
+//
+// Exactly one row exists, pinned to id = "global".
+model AppSetting {
+  id        String   @id @default("global")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Google OAuth client used for every Gmail connection on this instance.
+  // The secret is encrypted at rest with ENCRYPTION_KEY, exactly like the
+  // per-mailbox refresh tokens in MailAccount.
+  googleClientId     String?
+  googleClientSecret String?
+  googleRedirectUri  String?
+
+  // Audit trail for the last edit.
+  updatedById String?
+  updatedByEmail String?
+}

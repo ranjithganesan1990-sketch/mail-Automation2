@@ -1,0 +1,515 @@
+===============================================================
+ MAIL AUTOMATION - HOW TO RUN
+===============================================================
+
+ Two apps run together:
+   server  -> the API + automation engine   (port 4000)
+   web     -> the dashboard you use         (port 5173)
+
+ One command starts both. Setup below is a one-time thing.
+
+
+===============================================================
+ BEFORE YOU START
+===============================================================
+
+ You need:
+
+   1. Node.js 20 or newer        -> check with:  node --version
+   2. PostgreSQL running          -> you already have v17 and v18 installed
+   3. Your PostgreSQL password    -> already generated, see STEP 2 below
+
+ IMPORTANT - WHICH POSTGRESQL THIS APP USES
+
+   You have two servers running and their ports are NOT in the order
+   you would expect:
+
+       PostgreSQL 18  ->  port 5432   <-- THIS APP USES THIS ONE
+       PostgreSQL 17  ->  port 5433
+
+   Everything below uses the v18 binaries in:
+       C:\Program Files\PostgreSQL\18\bin\
+
+   If you use pgAdmin, make sure you are on the localhost:5432 server.
+   Creating the database on 5433 by mistake is the most common way to
+   get "database mail_automation does not exist" later.
+
+ Optional (can be added later):
+
+   4. A Google Cloud project      -> only needed to actually send/draft email
+   5. A Stripe account            -> only needed for subscriptions/billing
+
+ Without #4 the app runs fine, you just cannot connect a mailbox yet.
+ Without #5 everything stays on the Free plan.
+
+
+===============================================================
+ FIRST-TIME SETUP  (do this once)
+===============================================================
+
+---------------------------------------------------------------
+ STEP 1 - Install dependencies
+---------------------------------------------------------------
+
+ Open a terminal in this folder and run:
+
+     npm install
+
+ This installs both apps at once. Takes a few minutes.
+
+
+---------------------------------------------------------------
+ STEP 2 - Set the database password
+---------------------------------------------------------------
+
+ THE PASSWORD FOR THIS PROJECT IS:
+
+     bfcHNK0eZmxhHDFKm6YAMS3q
+
+ It is the password for the  postgres  user on PostgreSQL 18 (port 5432).
+ It is already written into  server\.env  - you do not need to edit that
+ file. This line is already done for you:
+
+     DATABASE_URL="postgresql://postgres:bfcHNK0eZmxhHDFKm6YAMS3q@localhost:5432/mail_automation?schema=public"
+
+ ****  THIS STEP IS ALREADY DONE. NOTHING TO DO HERE.  ****
+
+ The password above has been set on PostgreSQL 18, the  mail_automation
+ database has been created, and the tables are already in place. You can
+ go straight to "RUNNING THE APP".
+
+ Confirm any time with:
+
+     $env:PGPASSWORD="bfcHNK0eZmxhHDFKm6YAMS3q"
+     & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -d mail_automation -c "\dt"
+
+ The rest of this step is kept only for reference - you need it if you
+ ever reinstall PostgreSQL, move to another machine, or want to change
+ the password to something else.
+
+ Note that editing DATABASE_URL in server\.env does NOT change the
+ password inside PostgreSQL. Those are two separate places and both have
+ to agree. That is what causes "Authentication failed against database
+ server". To change the password you must do BOTH: run the ALTER USER
+ below, and update server\.env to match.
+
+ 2a. IF YOU KNOW YOUR CURRENT postgres PASSWORD
+
+     Open a normal terminal and run:
+
+         "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -c "ALTER USER postgres PASSWORD 'bfcHNK0eZmxhHDFKm6YAMS3q';"
+
+     It prompts for the CURRENT password. After it prints ALTER ROLE,
+     you are done with this step.
+
+ 2b. IF YOU DO NOT KNOW YOUR CURRENT postgres PASSWORD
+
+     You have to let yourself in once, set the password, then lock it
+     back down. This needs an ADMINISTRATOR terminal
+     (right-click PowerShell -> Run as administrator).
+
+     1. Open this file:
+            C:\Program Files\PostgreSQL\18\data\pg_hba.conf
+
+        Scroll to the bottom. Change  scram-sha-256  to  trust  on these
+        three lines only:
+
+            local   all   all                         trust
+            host    all   all   127.0.0.1/32          trust
+            host    all   all   ::1/128               trust
+
+        Save it. (Copy the file somewhere first if you want a backup.)
+
+     2. In the ADMIN terminal, reload the server:
+
+            & "C:\Program Files\PostgreSQL\18\bin\pg_ctl.exe" reload -D "C:\Program Files\PostgreSQL\18\data"
+
+        If that says "Operation not permitted", your terminal is not
+        really elevated. Restarting the service does the same job:
+
+            Restart-Service postgresql-x64-18
+
+     3. Set the password (no prompt now, trust means no password asked):
+
+            & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -c "ALTER USER postgres PASSWORD 'bfcHNK0eZmxhHDFKm6YAMS3q';"
+
+     4. PUT pg_hba.conf BACK. Change all three  trust  values back to
+        scram-sha-256, save, and reload again:
+
+            & "C:\Program Files\PostgreSQL\18\bin\pg_ctl.exe" reload -D "C:\Program Files\PostgreSQL\18\data"
+
+        If that says "Operation not permitted", your terminal is not
+        really elevated. Restarting the service does the same job:
+
+            Restart-Service postgresql-x64-18
+
+        Do not skip step 4. Leaving it on  trust  means anything on this
+        machine can connect to any database as the superuser with no
+        password at all.
+
+ 2c. CHECK IT WORKED
+
+     Run this - it should list your databases without any prompt:
+
+         $env:PGPASSWORD="bfcHNK0eZmxhHDFKm6YAMS3q"
+         & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -l
+
+ NOTE: JWT_SECRET and ENCRYPTION_KEY in server\.env are already filled in
+       with generated values. Leave them alone.
+
+       ENCRYPTION_KEY protects your saved Gmail tokens. If you ever
+       change it, every connected mailbox must be reconnected.
+
+ If you ever change the password to one of your own choosing, and it
+ contains  @ : / ? # % or &  it must be percent-encoded in DATABASE_URL.
+   @ becomes %40   : becomes %3A   / becomes %2F   ? becomes %3F
+ The generated password above is deliberately letters and digits only,
+ so it needs no encoding.
+
+
+---------------------------------------------------------------
+ STEP 3 - Create the database
+---------------------------------------------------------------
+
+ ****  ALREADY DONE - mail_automation exists on port 5432.  ****
+ Reference only, for a reinstall or a new machine.
+
+ The database named  mail_automation  must exist before the next step.
+ It must be created on PostgreSQL 18 / port 5432.
+
+ From a terminal:
+
+     $env:PGPASSWORD="bfcHNK0eZmxhHDFKm6YAMS3q"
+     & "C:\Program Files\PostgreSQL\18\bin\createdb.exe" -U postgres -h localhost -p 5432 mail_automation
+
+ Or in pgAdmin:
+     - connect to the  localhost:5432  server (NOT 5433)
+     - right-click "Databases" -> Create -> Database
+     - Name it:  mail_automation
+     - Save
+
+
+---------------------------------------------------------------
+ STEP 4 - Create the tables
+---------------------------------------------------------------
+
+ ****  ALREADY DONE - 15 tables created.  ****
+ Re-run it only after you change prisma\schema.prisma.
+
+     npm run db:push
+
+ You should see "Your database is now in sync with your Prisma schema."
+
+
+---------------------------------------------------------------
+ STEP 5 - Load demo data  (optional but recommended)
+---------------------------------------------------------------
+
+ ****  ALREADY DONE - demo data is loaded, log in with the details below. ****
+
+     npm run seed
+
+ This creates a demo workspace so the dashboard is not empty:
+   1 campaign, 8 contacts, 4 templates.
+
+ Login it prints:
+
+     email:     demo@mailautomation.app
+     password:  demo12345
+
+ Skip this step if you would rather start clean and register your own
+ account on the sign-up screen.
+
+
+===============================================================
+ RUNNING THE APP  (every time)
+===============================================================
+
+     npm run dev
+
+ Wait until you see the API banner, then open:
+
+     http://localhost:5173
+
+ To stop both apps: press  Ctrl + C  in the terminal.
+
+ To check the API is healthy on its own:
+
+     http://localhost:4000/api/health
+
+ Should return:  {"ok":true,"database":"connected", ...}
+
+
+===============================================================
+ CONNECTING GMAIL  (needed to create drafts / send)
+===============================================================
+
+ Until this is done, campaigns cannot produce email.
+
+ 1. Go to  https://console.cloud.google.com/
+ 2. Create a project (or pick an existing one).
+ 3. APIs & Services -> Library -> search "Gmail API" -> Enable.
+ 4. APIs & Services -> OAuth consent screen:
+       - fill in the basics
+       - while it is in "Testing" mode, add every Gmail address you
+         intend to connect under "Test users", or login will be blocked
+ 5. APIs & Services -> Credentials -> Create Credentials
+       -> OAuth client ID
+       -> Application type: Web application
+       -> Authorised redirect URI, paste EXACTLY:
+
+            http://localhost:4000/api/mail-accounts/oauth/callback
+
+ 6. Paste the Client ID and Client Secret into the DASHBOARD:
+
+            Settings -> Google OAuth  ->  Save credentials
+
+    No file editing and no restart. The change takes effect on the next
+    connection attempt.
+
+    That screen also prints the exact redirect URI this server expects, so
+    you can copy it straight into Google Cloud in step 5.
+
+    Only the instance owner (the OWNER of the first workspace created on
+    this server) can see or change this. Other workspace owners get a 403 -
+    otherwise on a multi-tenant deployment one customer could rewrite the
+    Google client every other customer signs in through.
+
+    The Client Secret is encrypted with ENCRYPTION_KEY before it is stored,
+    the same way your Gmail refresh tokens are, and it is never sent back to
+    the browser once saved.
+
+ 7. In the dashboard: Settings -> Mailboxes -> Connect Gmail.
+
+ ---------------------------------------------------------------
+  THE REDIRECT URI MUST BE THIS APP'S CALLBACK
+ ---------------------------------------------------------------
+
+ This is the single most common thing to get wrong. The redirect URI has
+ to point back at THIS server:
+
+     http://localhost:4000/api/mail-accounts/oauth/callback
+
+ It is NOT the address of your dashboard, and it is NOT the URL of any
+ other app you happen to have deployed. If you paste a URL belonging to a
+ different project, Google either refuses with redirect_uri_mismatch or
+ hands the authorisation code to that other app, and no mailbox is ever
+ connected here.
+
+ The Settings -> Google OAuth screen shows a red warning under the
+ Redirect URI field whenever the saved value does not match what this
+ server expects. Do not ignore it.
+
+ ---------------------------------------------------------------
+  server\.env STILL WORKS
+ ---------------------------------------------------------------
+
+ GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET in server\.env are still read as
+ a fallback, so an existing setup keeps working. Order of precedence:
+
+     1. what you saved in Settings -> Google OAuth   (wins)
+     2. server\.env
+     3. nothing -> "Connect Gmail" stays disabled
+
+ The Settings screen shows which of these is currently in force. Using
+ .env still requires a restart to pick up a change; the dashboard does not.
+
+
+===============================================================
+ CONNECTING STRIPE  (only if you want paid plans)
+===============================================================
+
+ Skip entirely if you are not charging anyone yet. Everything runs on
+ the Free plan and the billing page simply says it is not configured.
+
+ 1. Stripe Dashboard -> Developers -> API keys
+       copy the secret key into  STRIPE_SECRET_KEY  in server\.env
+
+ 2. Stripe Dashboard -> Products -> Add product
+       create ONE recurring MONTHLY price per paid plan, then put the
+       price IDs (they start with price_) into server\.env :
+
+            STRIPE_PRICE_STARTER="price_..."
+            STRIPE_PRICE_PRO="price_..."
+            STRIPE_PRICE_BUSINESS="price_..."
+
+       A plan with no price ID just shows as unavailable. It will not
+       break anything.
+
+ 3. For webhooks during development, in a SECOND terminal run:
+
+            stripe listen --forward-to localhost:4000/api/webhooks/stripe
+
+       Copy the whsec_... value it prints into  STRIPE_WEBHOOK_SECRET
+
+ 4. Restart the app.
+
+ Plan pricing and limits are defined in:  server\src\lib\plans.ts
+ Edit that file to change tiers.
+
+
+===============================================================
+ FIRST RUN - WHAT TO DO IN THE DASHBOARD
+===============================================================
+
+ 1. Settings -> Mailboxes
+       Connect the Gmail account you send outreach from.
+
+ 2. Templates -> New template
+       Write your email. Use {{Column Name}} anywhere to personalise.
+       {{First Name|there}} falls back to "there" when the field is empty.
+       The right-hand panel previews it against a real contact.
+
+ 3. Campaigns -> New campaign
+       Pick the mailbox, then choose the delivery mode:
+
+         "Create drafts for review"  -> emails wait in your Gmail Drafts
+                                        (this matches your old script)
+         "Send automatically"        -> emails go out immediately
+
+ 4. Open the campaign -> Contacts tab -> Import CSV
+       Every column header becomes a merge variable.
+       One column must be named Email.
+
+ 5. Sequence tab
+       For each of the 4 steps set a template and a date, then Save.
+
+       Use "Test first contact" first - it creates ONE email so you can
+       check the merge output before running the whole list.
+
+ 6. Settings tab -> set status to Active
+
+       The scheduler then runs any step dated today, at the time set in
+       Settings -> Workspace (default 06:30, your timezone).
+
+       "Run daily process now" on the Dashboard triggers it immediately.
+
+
+ IMPORTANT ABOUT FOLLOW-UPS
+ ---------------------------
+ Follow-ups reply INSIDE the existing Gmail thread. They find the thread
+ by the stored thread ID, or by searching your mailbox.
+
+ If you sent your initial emails from somewhere else (your old script,
+ or by hand), open the campaign and click "Sync threads" FIRST so the
+ follow-ups know where to reply.
+
+ Contacts with no existing conversation are skipped and logged - they
+ are never sent as a fresh email by mistake.
+
+
+===============================================================
+ USEFUL COMMANDS
+===============================================================
+
+ npm install          Install everything (first time, or after git pull)
+ npm run dev          Start both apps for development
+ npm run db:push      Apply schema changes to the database
+ npm run db:studio    Open a visual database browser in your browser
+ npm run seed         Load demo data (safe to re-run)
+ npm run build        Production build of both apps
+ npm start            Run the built server (production)
+
+
+===============================================================
+ TROUBLESHOOTING
+===============================================================
+
+ "Authentication failed against database server"
+     PostgreSQL does not have the password that server\.env is using.
+     You almost certainly skipped STEP 2 - setting the password in
+     server\.env does NOT change it inside PostgreSQL. Do STEP 2, then
+     verify with STEP 2c.
+
+ "database mail_automation does not exist"
+     Either you skipped STEP 3, or you created the database on the wrong
+     server. Remember: this app uses PostgreSQL 18 on port 5432, and
+     PostgreSQL 17 is on 5433. Check which one you created it on:
+
+         $env:PGPASSWORD="bfcHNK0eZmxhHDFKm6YAMS3q"
+         & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -l
+
+ "Port 4000 is already in use"
+     An older copy is still running. Close other terminals, or find and
+     stop it in PowerShell:
+
+         netstat -ano | findstr :4000
+         taskkill /PID <the-number-at-the-end> /F
+
+ "Port 5173 is already in use"
+     Vite will just pick 5174 and tell you. Use the URL it prints.
+
+ Dashboard loads but everything is empty / spinning
+     The API is not running or cannot reach the database.
+     Open http://localhost:4000/api/health and read the error.
+
+ "Google OAuth is not configured"
+     No credentials are in force. Add them in Settings -> Google OAuth.
+     (If you are using server\.env instead, you must restart the app after
+     editing it - the dashboard route needs no restart.)
+
+     If you cannot see the Google OAuth card on the Settings page, you are
+     not signed in as the instance owner - the OWNER of the first workspace
+     created on this server.
+
+ "Access blocked" / "app not verified" on the Google consent screen
+     Your OAuth consent screen is in Testing mode and that Gmail address
+     is not listed under Test users. Add it.
+
+ "redirect_uri_mismatch" from Google
+     Three values must be identical: the one registered in Google Cloud,
+     the one saved in Settings -> Google OAuth, and this server's own
+     callback address:
+
+         http://localhost:4000/api/mail-accounts/oauth/callback
+
+     Exactly - including http:// and the full trailing path. A URL from a
+     different app of yours will not work here. Check the Redirect URI
+     field on the Settings -> Google OAuth screen; it flags a mismatch in
+     red.
+
+ A mailbox shows "needs reconnect"
+     Google revoked the token (password change, or it sat idle too long).
+     Settings -> Mailboxes -> Reconnect.
+
+ A run says PAUSED - "Daily sending limit reached"
+     Working as intended. It resumes automatically tomorrow. Raise the
+     limit in Settings -> Workspace, or upgrade the plan.
+
+ Follow-ups all skipped with "No existing conversation"
+     Run "Sync threads" on the campaign first.
+
+ Changed ENCRYPTION_KEY and mailboxes stopped working
+     That key decrypts saved Google tokens. Restore the old value, or
+     reconnect every mailbox.
+
+
+===============================================================
+ WHERE THINGS LIVE
+===============================================================
+
+ server\.env                      Secrets read at startup (fallback layer)
+ server\src\lib\appconfig.ts      Resolves settings: database first, .env second
+ server\src\routes\settings.routes.ts  The instance-owner settings API
+ web\src\pages\Settings.tsx       The Google OAuth card lives here
+ server\prisma\schema.prisma      Database structure (AppSetting = global config)
+ server\src\lib\plans.ts          Plan pricing and limits
+ server\src\services\runner.ts    The campaign sending engine
+ server\src\services\scheduler.ts Daily automation timing
+ server\uploads\                  Uploaded attachment files
+ web\src\pages\                   Dashboard screens
+
+ README.md has the deeper technical detail and deployment notes.
+
+
+===============================================================
+ NEVER COMMIT server\.env TO GIT
+ It holds your database password, Google secret, Stripe key and the
+ encryption key for your saved mailbox tokens.
+ The included .gitignore already excludes it.
+
+ ALSO: this file (HOW TO RUN.txt) now contains the database password in
+ plain text, because you asked for it to be written down here. It is NOT
+ excluded by .gitignore. If this project ever goes into a shared repo,
+ remove the password from STEP 2 first, or add this file to .gitignore.
+===============================================================

@@ -1,0 +1,91 @@
+# =============================================================
+#  RENDER BLUEPRINT — Mail Automation
+#
+#  One Web Service serves BOTH the Express API and the built React
+#  dashboard from the same origin, so the relative `/api/...` calls in
+#  web/src/lib/api.ts work with no CORS and no second hostname.
+#
+#  Deploy:  Render Dashboard -> New + -> Blueprint -> pick this repo.
+#  Change `region` below if you want a datacentre closer to your users
+#  (oregon | ohio | virginia | frankfurt | singapore).
+# =============================================================
+
+databases:
+  - name: mail-automation-db
+    databaseName: mail_automation
+    user: mail_automation
+    
+    plan: basic-256mb
+    region: singapore
+
+services:
+  - type: web
+    name: mail-automation
+    runtime: node
+    plan: starter          # always-on: required, or node-cron stops while the
+                           # instance sleeps and daily sends / follow-ups never fire
+    region: singapore
+    branch: main
+
+    # --include=dev is mandatory: NODE_ENV=production would otherwise make npm
+    # skip typescript / vite / prisma, which are all build-time tools here.
+    buildCommand: npm install --include=dev && npm run db:generate && npm run build
+
+    # db:deploy runs in the runtime environment, where the internal DATABASE_URL
+    # is reachable (a build container cannot see the private network).
+    startCommand: npm run db:deploy && npm run start
+
+    healthCheckPath: /api/health
+
+    # Attachments are written to disk by multer. Without this they vanish on
+    # every redeploy, and campaigns referencing them fail to send.
+    disk:
+      name: uploads
+      mountPath: /var/data
+      sizeGB: 1
+
+    envVars:
+      - key: NODE_VERSION
+        value: "20.18.1"
+      - key: NODE_ENV
+        value: production
+
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mail-automation-db
+          property: connectionString
+
+      # Generated once by Render and then held stable.
+      # WARNING: rotating ENCRYPTION_KEY makes every stored Gmail refresh token
+      # undecryptable — connected mailboxes would all need re-authorising.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+
+      # APP_URL / API_URL / GOOGLE_REDIRECT_URI are left unset on purpose:
+      # server/src/env.ts falls back to RENDER_EXTERNAL_URL, which Render
+      # injects with this service's real https:// address.
+
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: MAX_UPLOAD_BYTES
+        value: "15728640"
+
+      # Optional. Can also be set at runtime under Settings -> Google OAuth.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+      # Optional. Leave blank to run everything on the Free plan.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_STARTER
+        sync: false
+      - key: STRIPE_PRICE_PRO
+        sync: false
+      - key: STRIPE_PRICE_BUSINESS
+        sync: false

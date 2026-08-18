@@ -1,0 +1,30 @@
+{
+  "name": "mail-automation",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Multi-tenant SaaS for Gmail campaign automation with 3-level follow-ups",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm --workspace server run dev",
+    "dev:web": "npm --workspace web run dev",
+    "build": "npm --workspace server run build && npm --workspace web run build",
+    "start": "npm --workspace server run start",
+    "db:generate": "npm --workspace server run db:generate",
+    "db:push": "npm --workspace server run db:push",
+    "db:migrate": "npm --workspace server run db:migrate",
+    "db:deploy": "npm --workspace server exec -- prisma db push --skip-generate",
+    "db:studio": "npm --workspace server run db:studio",
+    "seed": "npm --workspace server run seed",
+    "setup": "npm install && npm run db:generate"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-ink-50 text-ink-800 font-sans antialiased;
+  }
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-ink-200 bg-white shadow-card;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-ink-700 mb-1.5;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-ink-300 bg-white px-3 py-2 text-sm text-ink-900
+           placeholder:text-ink-400 transition
+           focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none
+           disabled:cursor-not-allowed disabled:bg-ink-100 disabled:text-ink-500;
+  }
+
+  .table-wrap {
+    @apply overflow-x-auto rounded-xl border border-ink-200 bg-white;
+  }
+
+  .th {
+    @apply whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-ink-500;
+  }
+
+  .td {
+    @apply whitespace-nowrap px-4 py-3 text-sm text-ink-700;
+  }
+}
+
+/* TipTap editor surface */
+.tiptap {
+  @apply min-h-[320px] px-4 py-3 text-sm leading-relaxed text-ink-800 focus:outline-none;
+}
+.tiptap p {
+  @apply my-2;
+}
+.tiptap h1 {
+  @apply text-2xl font-bold my-3;
+}
+.tiptap h2 {
+  @apply text-xl font-bold my-3;
+}
+.tiptap h3 {
+  @apply text-lg font-semibold my-2;
+}
+.tiptap ul {
+  @apply list-disc pl-6 my-2;
+}
+.tiptap ol {
+  @apply list-decimal pl-6 my-2;
+}
+.tiptap blockquote {
+  @apply border-l-4 border-ink-300 pl-4 italic text-ink-600 my-2;
+}
+.tiptap a {
+  @apply text-brand-600 underline;
+}
+.tiptap p.is-editor-empty:first-child::before {
+  @apply text-ink-400 float-left h-0 pointer-events-none;
+  content: attr(data-placeholder);
+}
+
+/* Merge-variable chips inside rendered previews */
+.preview-body {
+  @apply text-sm leading-relaxed text-ink-800;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-ink-300;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-ink-400;
+}
